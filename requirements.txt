@@ -1,6 +1,5 @@
 streamlit
 easyocr
 pillow
-python-docx
 fpdf
 pymupdf
