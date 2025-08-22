@@ -1,3 +1,9 @@
+import streamlit as st
+import pytesseract
+from PIL import Image
+from fpdf import FPDF
+import fitz  # pymupdf
+import io
 def extract_text_from_file(file_path):
     text = ""
     if file_path.lower().endswith((".jpg", ".jpeg", ".png")):
