@@ -1,5 +1,3 @@
-!sudo apt-get update
-!sudo apt-get install poppler-utils
 def extract_text_from_file(file_path):
     text = ""
     if file_path.lower().endswith((".jpg", ".jpeg", ".png")):
