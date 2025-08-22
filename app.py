@@ -14,7 +14,7 @@ def extract_text_from_file(file_path):
         for page in pages:
             text += pytesseract.image_to_string(page) + "\n\n"
     return tex
-  !pip install reportlab
+  
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
