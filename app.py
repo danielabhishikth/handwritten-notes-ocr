@@ -5,19 +5,34 @@ import fitz  # PyMuPDF
 from fpdf import FPDF
 import os
 
-# Initialize EasyOCR Reader
+# Add custom CSS for UI
+st.markdown("""
+    <style>
+    body {
+        background-color: #f9f9f9;
+    }
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 10px;
+        font-size: 16px;
+        padding: 10px 24px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Initialize EasyOCR
 reader = easyocr.Reader(['en'])
 
 st.title("📝 Handwritten Notes to Digital Text")
-st.write("Upload handwritten notes (JPG, PNG, or PDF) and convert them into digital text. "
-         "Download results as PDF.")
+st.write("Upload handwritten notes (JPG, PNG, or PDF) → Extract text → Download results as PDF.")
 
-# Function to extract text
+# OCR Function
 def extract_text_from_file(file_path):
     result = reader.readtext(file_path, detail=0)
     return "\n".join(result)
 
-# Function to save text as PDF
+# Save text to PDF
 def save_text_as_pdf(text, filename="output.pdf"):
     pdf = FPDF()
     pdf.add_page()
@@ -27,7 +42,7 @@ def save_text_as_pdf(text, filename="output.pdf"):
     pdf.output(filename)
     return filename
 
-# Upload file
+# File Upload
 uploaded_file = st.file_uploader("Upload a handwritten note (JPG, PNG, or PDF)", type=["jpg", "png", "pdf"])
 
 if uploaded_file:
@@ -51,7 +66,7 @@ if uploaded_file:
         st.image(Image.open(file_path), caption="Uploaded Image", use_container_width=True)
         extracted_text = extract_text_from_file(file_path)
 
-    # Show text
+    # Show extracted text
     st.subheader("📄 Extracted Text:")
     st.text_area("Extracted Notes", extracted_text, height=250)
 
@@ -60,22 +75,3 @@ if uploaded_file:
         pdf_filename = save_text_as_pdf(extracted_text)
         with open(pdf_filename, "rb") as pdf_file:
             st.download_button("⬇️ Download as PDF", pdf_file, file_name="digital_notes.pdf", mime="application/pdf")
-
-<style>
-    .stButton button {
-        background-color: #4CAF50;
-        color: white;
-        font-size: 16px;
-        border-radius: 10px;
-        padding: 10px 24px;
-    }
-    .stTextArea textarea {
-        background-color: #f9f9f9;
-        font-family: 'Courier New', monospace;
-        font-size: 14px;
-    }
-</style>
-""", unsafe_allow_html=True)
-mode = st.toggle("🌙 Dark Mode")
-if mode:
-    st.markdown("<style>body{background-color: #121212; color:white}</style>", unsafe_allow_html=True)
