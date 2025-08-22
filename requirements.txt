@@ -1,7 +1,6 @@
 streamlit
-pytesseract
+easyocr
 pillow
 python-docx
 fpdf
 pymupdf
-reportlab
