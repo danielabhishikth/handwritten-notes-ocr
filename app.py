@@ -1,63 +1,66 @@
 import streamlit as st
-import pytesseract
+import easyocr
 from PIL import Image
+import fitz  # PyMuPDF
 from fpdf import FPDF
-import fitz  # pymupdf
-import io
-def extract_text_from_file(file_path):
-    text = ""
-    if file_path.lower().endswith((".jpg", ".jpeg", ".png")):
-        img = Image.open(file_path)
-        text = pytesseract.image_to_string(img)
-    elif file_path.lower().endswith(".pdf"):
-        pages = convert_from_path(file_path)
-        import easyocr
+import os
 
+# Initialize EasyOCR Reader
+reader = easyocr.Reader(['en'])
+
+st.title("📝 Handwritten Notes to Digital Text")
+st.write("Upload handwritten notes (JPG, PNG, or PDF) and convert them into digital text. "
+         "Download results as PDF.")
+
+# Function to extract text
 def extract_text_from_file(file_path):
-    reader = easyocr.Reader(['en'])  # English
-    result = reader.readtext(file_path, detail=0)  # list of strings
+    result = reader.readtext(file_path, detail=0)
     return "\n".join(result)
 
-        for page in pages:
-            text += pytesseract.image_to_string(page) + "\n\n"
-    return tex
-def save_text_to_pdf(text, output_filename="output_notes.pdf"):
-    c = canvas.Canvas(output_filename, pagesize=letter)
-    width, height = letter
-    y = height - 50
+# Function to save text as PDF
+def save_text_as_pdf(text, filename="output.pdf"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
     for line in text.split("\n"):
-        c.drawString(50, y, line)
-        y -= 15
-        if y < 50:
-            c.showPage()
-            y = height - 50
-    c.save()
-import streamlit as st
+        pdf.multi_cell(0, 10, line)
+    pdf.output(filename)
+    return filename
 
-st.set_page_config(page_title="Smart Notes Converter", page_icon="📚", layout="wide")
-st.title("📚 Handwritten Notes → Digital PDF Converter")
-
-uploaded_file = st.file_uploader("Upload handwritten notes (JPG/PNG/PDF)", type=["jpg","jpeg","png","pdf"])
+# Upload file
+uploaded_file = st.file_uploader("Upload a handwritten note (JPG, PNG, or PDF)", type=["jpg", "png", "pdf"])
 
 if uploaded_file:
-    with open(uploaded_file.name, "wb") as f:
+    file_path = uploaded_file.name
+    with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
-    st.info("⏳ Processing your file...")
-    extracted_text = extract_text_from_file(uploaded_file.name)
+    extracted_text = ""
 
-    st.subheader("📄 Extracted Text")
-    st.text_area("Output", extracted_text, height=300)
+    if uploaded_file.type == "application/pdf":
+        st.info("📑 Processing PDF...")
+        pdf_doc = fitz.open(file_path)
+        for page_num in range(len(pdf_doc)):
+            page = pdf_doc.load_page(page_num)
+            pix = page.get_pixmap()
+            img_path = f"page_{page_num}.png"
+            pix.save(img_path)
+            extracted_text += extract_text_from_file(img_path) + "\n\n"
+            os.remove(img_path)
+    else:
+        st.image(Image.open(file_path), caption="Uploaded Image", use_container_width=True)
+        extracted_text = extract_text_from_file(file_path)
+
+    # Show text
+    st.subheader("📄 Extracted Text:")
+    st.text_area("Extracted Notes", extracted_text, height=250)
 
     # Save as PDF
-    save_text_to_pdf(extracted_text, "digital_notes.pdf")
-    with open("digital_notes.pdf", "rb") as f:
-        st.download_button("⬇️ Download PDF", f, file_name="digital_notes.pdf")
-st.set_page_config(page_title="Smart Notes Converter", page_icon="📝", layout="wide")
-st.title("📝 Smart Handwritten Notes Converter")
-st.markdown("Convert your handwritten notes into clean, searchable **digital PDFs** in seconds 🚀")
-st.header("📤 Upload Your Notes")
-st.markdown("""
+    if extracted_text.strip():
+        pdf_filename = save_text_as_pdf(extracted_text)
+        with open(pdf_filename, "rb") as pdf_file:
+            st.download_button("⬇️ Download as PDF", pdf_file, file_name="digital_notes.pdf", mime="application/pdf")
+
 <style>
     .stButton button {
         background-color: #4CAF50;
