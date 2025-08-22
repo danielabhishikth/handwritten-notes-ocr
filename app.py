@@ -11,6 +11,13 @@ def extract_text_from_file(file_path):
         text = pytesseract.image_to_string(img)
     elif file_path.lower().endswith(".pdf"):
         pages = convert_from_path(file_path)
+        import easyocr
+
+def extract_text_from_file(file_path):
+    reader = easyocr.Reader(['en'])  # English
+    result = reader.readtext(file_path, detail=0)  # list of strings
+    return "\n".join(result)
+
         for page in pages:
             text += pytesseract.image_to_string(page) + "\n\n"
     return tex
