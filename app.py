@@ -14,10 +14,6 @@ def extract_text_from_file(file_path):
         for page in pages:
             text += pytesseract.image_to_string(page) + "\n\n"
     return tex
-  
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-
 def save_text_to_pdf(text, output_filename="output_notes.pdf"):
     c = canvas.Canvas(output_filename, pagesize=letter)
     width, height = letter
