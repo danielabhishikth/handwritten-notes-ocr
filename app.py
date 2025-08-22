@@ -1,4 +1,3 @@
-!pip install pdf2image
 !sudo apt-get update
 !sudo apt-get install poppler-utils
 def extract_text_from_file(file_path):
