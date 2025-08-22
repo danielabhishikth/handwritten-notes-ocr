@@ -3,4 +3,3 @@ pytesseract
 pillow
 pymupdf
 fpdf
-python-docx
