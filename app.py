@@ -29,6 +29,15 @@ reader = easyocr.Reader(['en'])
 st.title("📝 Handwritten Notes to Digital Text")
 st.write("Upload handwritten notes (JPG, PNG, or PDF) and convert them into digital text. "
          "Download results as PDF.")
+from fpdf import FPDF
+
+def save_text_as_pdf(text, output_path):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    for line in text.split("\n"):
+        pdf.multi_cell(0, 10, line)
+    pdf.output(output_path)
 
 # Function to extract text
 def extract_text_from_file(file_path):
