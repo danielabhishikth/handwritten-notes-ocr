@@ -3,57 +3,83 @@ import easyocr
 import numpy as np
 import cv2
 from PIL import Image
-from fpdf import FPDF
 import PyPDF2
+from fpdf import FPDF
 import tempfile
+import os
 
-# OCR reader
-reader = easyocr.Reader(['en'])
+# Initialize EasyOCR Reader
+reader = easyocr.Reader(["en"], gpu=False)
 
+# OCR for images
 def extract_text_from_image(image):
-    results = reader.readtext(np.array(image))
+    if isinstance(image, np.ndarray):
+        results = reader.readtext(image)
+    else:
+        image = np.array(image)
+        results = reader.readtext(image)
+
     text = " ".join([res[1] for res in results])
-    return text
+    return text.strip()
 
+# OCR for PDFs
 def extract_text_from_pdf(pdf_file):
-    pdf_reader = PyPDF2.PdfReader(pdf_file)
     text = ""
-    for page in pdf_reader.pages:
-        text += page.extract_text() or ""  # Fallback if page has no text
-    return text
+    pdf_reader = PyPDF2.PdfReader(pdf_file)
 
-def save_text_as_pdf(text, filename="output.pdf"):
+    for page_num, page in enumerate(pdf_reader.pages):
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text + "\n"
+        else:
+            # Fallback to OCR if text is missing (scanned PDF)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_img:
+                xObject = page.get("/Resources", {}).get("/XObject", {})
+                if xObject:
+                    for obj in xObject:
+                        if xObject[obj]["/Subtype"] == "/Image":
+                            size = (xObject[obj]["/Width"], xObject[obj]["/Height"])
+                            data = xObject[obj].get_data()
+                            img = Image.frombytes("RGB", size, data)
+                            img.save(tmp_img.name, "JPEG")
+                            text += extract_text_from_image(img) + "\n"
+                            os.remove(tmp_img.name)
+    return text.strip()
+
+# Save extracted text into a PDF
+def save_text_to_pdf(text, output_filename="output.pdf"):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     for line in text.split("\n"):
         pdf.multi_cell(0, 10, line)
-    pdf.output(filename)
-    return filename
+    pdf.output(output_filename)
+    return output_filename
 
-# --- Streamlit UI ---
-st.title("📝 Handwritten Notes OCR to Digital PDF")
+# Streamlit UI
+st.set_page_config(page_title="Handwritten Notes OCR", layout="centered")
 
-uploaded_file = st.file_uploader("Upload JPG/PNG/PDF", type=["jpg", "jpeg", "png", "pdf"])
+st.markdown("<h1 style='text-align: center;'>📝 Handwritten Notes to PDF</h1>", unsafe_allow_html=True)
 
-if uploaded_file:
-    file_type = uploaded_file.type
+uploaded_file = st.file_uploader("📂 Upload Image (JPG/PNG) or PDF", type=["jpg", "jpeg", "png", "pdf"])
 
-    if "pdf" in file_type:
-        st.info("Extracting text from PDF...")
-        extracted_text = extract_text_from_pdf(uploaded_file)
+if uploaded_file is not None:
+    extracted_text = ""
 
-    else:  # image
-        image = Image.open(uploaded_file).convert("RGB")
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+    if uploaded_file.type in ["image/jpeg", "image/png"]:
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Uploaded Image", use_container_width=True)
         extracted_text = extract_text_from_image(image)
 
-    # Display extracted text
-    st.subheader("Extracted Text:")
-    st.text_area("Text", extracted_text, height=200)
+    elif uploaded_file.type == "application/pdf":
+        extracted_text = extract_text_from_pdf(uploaded_file)
 
-    if st.button("Download as PDF"):
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            pdf_path = save_text_as_pdf(extracted_text, tmp.name)
-            with open(pdf_path, "rb") as f:
-                st.download_button("📥 Download PDF", f, file_name="output.pdf")
+    if extracted_text:
+        st.subheader("📖 Extracted Text")
+        st.text_area("Output", extracted_text, height=250)
+
+        output_pdf = save_text_to_pdf(extracted_text)
+        with open(output_pdf, "rb") as f:
+            st.download_button("⬇ Download as PDF", f, file_name="converted_notes.pdf")
+    else:
+        st.error("❌ Could not extract any text. Try another file.")
