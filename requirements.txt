@@ -1,6 +1,5 @@
 streamlit
-pytesseract
-Pillow
+easyocr
 pdf2image
+pillow
 reportlab
-fpdf
