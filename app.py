@@ -1,89 +1,65 @@
 import streamlit as st
 import easyocr
+from pdf2image import convert_from_path
 from PIL import Image
-import fitz  # PyMuPDF
-from fpdf import FPDF
+import tempfile
 import os
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
-# Add custom CSS
-st.markdown("""
-    <style>
-    body {
-        background-color: #f9f9f9;
-    }
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 10px;
-        font-size: 16px;
-        padding: 10px 24px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# Initialize EasyOCR Reader
+# Initialize EasyOCR Reader (English, add more langs if needed)
 reader = easyocr.Reader(['en'])
 
-st.title("📝 Handwritten Notes to Digital Text")
-st.write("Upload handwritten notes (JPG, PNG, or PDF) and convert them into digital text. "
-         "Download results as PDF.")
-from fpdf import FPDF
+# Function: Extract text from image
+def extract_text_from_image(image):
+    results = reader.readtext(image)
+    text = "\n".join([res[1] for res in results])
+    return text
 
+# Function: Convert text to PDF
 def save_text_as_pdf(text, output_path):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    c = canvas.Canvas(output_path, pagesize=letter)
+    width, height = letter
+    y = height - 40
     for line in text.split("\n"):
-        pdf.multi_cell(0, 10, line)
-    pdf.output(output_path)
+        c.drawString(40, y, line)
+        y -= 15
+        if y < 40:
+            c.showPage()
+            y = height - 40
+    c.save()
 
-# Function to extract text
-def extract_text_from_file(file_path):
-    result = reader.readtext(file_path, detail=0)
-    return "\n".join(result)
+# Streamlit UI
+st.set_page_config(page_title="Handwritten Notes OCR", layout="centered")
+st.markdown("<h2 style='text-align: center; color: #4CAF50;'>📝 Handwritten Notes to Digital Text</h2>", unsafe_allow_html=True)
 
-# Function to save text as PDF
-def save_text_as_pdf(text, filename="output.pdf"):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    for line in text.split("\n"):
-        pdf.multi_cell(0, 10, line)
-    pdf.output(filename)
-    return filename
+uploaded_file = st.file_uploader("Upload your handwritten notes (JPG, PNG, PDF)", type=["jpg", "png", "pdf"])
 
-# Upload file
-uploaded_file = st.file_uploader("Upload a handwritten note (JPG, PNG, or PDF)", type=["jpg", "png", "pdf"])
-
-if uploaded_file:
-    file_path = uploaded_file.name
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+if uploaded_file is not None:
+    file_type = uploaded_file.name.split(".")[-1].lower()
 
     extracted_text = ""
 
-    if uploaded_file.type == "application/pdf":
-        st.info("📑 Processing PDF...")
-        pdf_doc = fitz.open(file_path)
-        for page_num in range(len(pdf_doc)):
-            page = pdf_doc.load_page(page_num)
-            pix = page.get_pixmap()
-            img_path = f"page_{page_num}.png"
-            pix.save(img_path)
-            extracted_text += extract_text_from_file(img_path) + "\n\n"
-            os.remove(img_path)
+    with tempfile.NamedTemporaryFile(delete=False, suffix="." + file_type) as tmp_file:
+        tmp_file.write(uploaded_file.read())
+        tmp_path = tmp_file.name
+
+    if file_type == "pdf":
+        pages = convert_from_path(tmp_path)
+        for page in pages:
+            extracted_text += extract_text_from_image(page) + "\n"
     else:
-        st.image(Image.open(file_path), caption="Uploaded Image", use_container_width=True)
-        extracted_text = extract_text_from_file(file_path)
+        image = Image.open(tmp_path)
+        extracted_text = extract_text_from_image(image)
 
-    # Show text
-    st.subheader("📄 Extracted Text:")
-    st.text_area("Extracted Notes", extracted_text, height=250)
+    st.subheader("📄 Extracted Text")
+    st.text_area("Output", extracted_text, height=200)
 
-    # Save as PDF
-    if extracted_text.strip():
-        pdf_filename = save_text_as_pdf(extracted_text)
-        with open(pdf_filename, "rb") as pdf_file:
-            st.download_button("⬇️ Download as PDF", pdf_file, file_name="digital_notes.pdf", mime="application/pdf")
+    # Save extracted text as PDF
+    if st.button("Download as PDF"):
+        pdf_path = "output_notes.pdf"
+        save_text_as_pdf(extracted_text, pdf_path)
+        with open(pdf_path, "rb") as f:
+            st.download_button("📥 Download PDF", f, file_name="handwritten_notes.pdf", mime="application/pdf")
+
+    os.remove(tmp_path)
