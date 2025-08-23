@@ -1,75 +1,61 @@
-import streamlit as st
+from flask import Flask, render_template, request, send_file
 import easyocr
-import numpy as np
-from PIL import Image
-import tempfile
 import os
-import PyPDF2
+from werkzeug.utils import secure_filename
 from fpdf import FPDF
+import fitz  # PyMuPDF for PDFs
+import tempfile
 
-# Initialize OCR reader
+app = Flask(__name__)
 reader = easyocr.Reader(['en'])
 
-# Function to extract text from images
-def extract_text_from_image(image):
-    results = reader.readtext(np.array(image))
-    extracted_text = " ".join([res[1] for res in results])
-    return extracted_text
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Function to extract text from PDFs
-def extract_text_from_pdf(file):
-    pdf_reader = PyPDF2.PdfReader(file)
-    text = ""
-    for page in pdf_reader.pages:
-        text += page.extract_text() or ""
+def ocr_image(path):
+    results = reader.readtext(path)
+    text = " ".join([res[1] for res in results])
     return text
 
-# Function to save text to PDF
-def save_text_to_pdf(text, output_path="output.pdf"):
+def ocr_pdf(path):
+    doc = fitz.open(path)
+    all_text = []
+    for page in doc:
+        pix = page.get_pixmap()
+        img_path = tempfile.mktemp(suffix=".png")
+        pix.save(img_path)
+        all_text.append(ocr_image(img_path))
+        os.remove(img_path)
+    return "\n".join(all_text)
+
+def save_text_to_pdf(text, output_path):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
-    for line in text.split("\n"):
-        pdf.multi_cell(0, 10, line)
+    pdf.multi_cell(0, 10, text)
     pdf.output(output_path)
-    return output_path
 
-# Streamlit UI
-st.set_page_config(page_title="Handwritten Notes OCR", layout="wide")
-st.title("📝 Handwritten Notes OCR")
-st.write("Upload handwritten **images (JPG/PNG)** or **PDFs** and get digital text back as a PDF.")
+@app.route("/", methods=["GET", "POST"])
+def index():
+    if request.method == "POST":
+        file = request.files["file"]
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
 
-uploaded_file = st.file_uploader("Upload a JPG, PNG, or PDF", type=["jpg", "png", "jpeg", "pdf"])
+        if filename.lower().endswith((".png", ".jpg", ".jpeg")):
+            extracted = ocr_image(filepath)
+        elif filename.lower().endswith(".pdf"):
+            extracted = ocr_pdf(filepath)
+        else:
+            return "Unsupported file type", 400
 
-if uploaded_file is not None:
-    file_ext = uploaded_file.name.split(".")[-1].lower()
-    extracted_text = ""
+        output_path = os.path.join(UPLOAD_FOLDER, "output.pdf")
+        save_text_to_pdf(extracted, output_path)
 
-    if file_ext in ["jpg", "jpeg", "png"]:
-        # Process image
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        with st.spinner("Extracting text..."):
-            extracted_text = extract_text_from_image(image)
+        return send_file(output_path, as_attachment=True)
 
-    elif file_ext == "pdf":
-        # Save temp PDF and process
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(uploaded_file.read())
-            tmp_path = tmp.name
-        with st.spinner("Extracting text from PDF..."):
-            with open(tmp_path, "rb") as f:
-                extracted_text = extract_text_from_pdf(f)
-        os.remove(tmp_path)
+    return render_template("index.html")
 
-    if extracted_text.strip():
-        st.subheader("📄 Extracted Text")
-        st.text_area("Digital Text", extracted_text, height=200)
-
-        if st.button("Download as PDF"):
-            output_pdf = save_text_to_pdf(extracted_text)
-            with open(output_pdf, "rb") as f:
-                st.download_button("⬇ Download PDF", f, file_name="digital_notes.pdf", mime="application/pdf")
-    else:
-        st.error("No text could be extracted. Please try a clearer image or PDF.")
-
+if __name__ == "__main__":
+    app.run(debug=True)
