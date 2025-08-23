@@ -1,5 +1,6 @@
 streamlit
 easyocr
+pdf2image
 pillow
-fpdf
-pymupdf
+reportlab
+PyMuPDF
