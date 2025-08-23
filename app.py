@@ -4,6 +4,8 @@ from PIL import Image
 import fitz  # PyMuPDF
 from fpdf import FPDF
 import os
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 # Add custom CSS
 st.markdown("""
