@@ -1,65 +1,76 @@
 import streamlit as st
-import easyocr
-from pdf2image import convert_from_path
+import fitz  # PyMuPDF
+import numpy as np
+import cv2
+from easyocr import Reader
+from fpdf import FPDF
 from PIL import Image
-import tempfile
-import os
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 
-# Initialize EasyOCR Reader (English, add more langs if needed)
-reader = easyocr.Reader(['en'])
+# Initialize EasyOCR reader
+reader = Reader(['en'])
 
-# Function: Extract text from image
-def extract_text_from_image(image):
-    results = reader.readtext(image)
-    text = "\n".join([res[1] for res in results])
-    return text
+# Function: Extract text from images
+def extract_text_from_image(uploaded_file):
+    image = Image.open(uploaded_file)
+    img = np.array(image)
 
-# Function: Convert text to PDF
-def save_text_as_pdf(text, output_path):
-    c = canvas.Canvas(output_path, pagesize=letter)
-    width, height = letter
-    y = height - 40
+    results = reader.readtext(img)
+    extracted_text = " ".join([res[1] for res in results])
+
+    return extracted_text
+
+# Function: Extract text from PDFs using PyMuPDF
+def extract_text_from_pdf(uploaded_file):
+    text_results = []
+
+    pdf_document = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+
+    for page_num in range(len(pdf_document)):
+        page = pdf_document[page_num]
+        pix = page.get_pixmap()
+        img_bytes = pix.tobytes("png")
+
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        results = reader.readtext(img)
+        extracted_text = " ".join([res[1] for res in results])
+        text_results.append(extracted_text)
+
+    return "\n\n".join(text_results)
+
+# Function: Save extracted text to a PDF
+def save_text_to_pdf(text):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
     for line in text.split("\n"):
-        c.drawString(40, y, line)
-        y -= 15
-        if y < 40:
-            c.showPage()
-            y = height - 40
-    c.save()
+        pdf.multi_cell(0, 10, line)
 
-# Streamlit UI
+    return pdf.output(dest="S").encode("latin-1")
+
+# ---------------- STREAMLIT UI ----------------
 st.set_page_config(page_title="Handwritten Notes OCR", layout="centered")
-st.markdown("<h2 style='text-align: center; color: #4CAF50;'>📝 Handwritten Notes to Digital Text</h2>", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Upload your handwritten notes (JPG, PNG, PDF)", type=["jpg", "png", "pdf"])
+st.title("📝 Handwritten Notes OCR")
+st.markdown("Upload your **handwritten notes (jpg, png, or pdf)** and get back clean, digital text.")
+
+uploaded_file = st.file_uploader("Upload your file", type=["jpg", "png", "pdf"])
 
 if uploaded_file is not None:
-    file_type = uploaded_file.name.split(".")[-1].lower()
-
-    extracted_text = ""
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix="." + file_type) as tmp_file:
-        tmp_file.write(uploaded_file.read())
-        tmp_path = tmp_file.name
-
-    if file_type == "pdf":
-        pages = convert_from_path(tmp_path)
-        for page in pages:
-            extracted_text += extract_text_from_image(page) + "\n"
+    if uploaded_file.type == "application/pdf":
+        st.info("📄 Processing PDF...")
+        extracted_text = extract_text_from_pdf(uploaded_file)
     else:
-        image = Image.open(tmp_path)
-        extracted_text = extract_text_from_image(image)
+        st.info("🖼️ Processing Image...")
+        extracted_text = extract_text_from_image(uploaded_file)
 
-    st.subheader("📄 Extracted Text")
-    st.text_area("Output", extracted_text, height=200)
+    if extracted_text.strip():
+        st.subheader("✅ Extracted Text")
+        st.write(extracted_text)
 
-    # Save extracted text as PDF
-    if st.button("Download as PDF"):
-        pdf_path = "output_notes.pdf"
-        save_text_as_pdf(extracted_text, pdf_path)
-        with open(pdf_path, "rb") as f:
-            st.download_button("📥 Download PDF", f, file_name="handwritten_notes.pdf", mime="application/pdf")
-
-    os.remove(tmp_path)
+        pdf_bytes = save_text_to_pdf(extracted_text)
+        st.download_button("📥 Download as PDF", data=pdf_bytes, file_name="extracted_text.pdf", mime="application/pdf")
+    else:
+        st.error("❌ No text detected. Try uploading a clearer image or handwritten notes.")
