@@ -1,6 +1,6 @@
 streamlit
-easyocr
+pytesseract
+Pillow
 pdf2image
-pillow
 reportlab
-PyMuPDF
+fpdf
