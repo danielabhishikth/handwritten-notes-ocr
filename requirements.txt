@@ -4,4 +4,4 @@ opencv-python-headless
 numpy
 Pillow
 fpdf
-pymupdf
+PyPDF2
