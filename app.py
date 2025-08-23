@@ -72,3 +72,4 @@ if uploaded_file is not None:
                 st.download_button("⬇ Download PDF", f, file_name="digital_notes.pdf", mime="application/pdf")
     else:
         st.error("No text could be extracted. Please try a clearer image or PDF.")
+
