@@ -5,7 +5,7 @@ import fitz  # PyMuPDF
 from fpdf import FPDF
 import os
 
-# Add custom CSS for UI
+# Add custom CSS
 st.markdown("""
     <style>
     body {
@@ -21,18 +21,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize EasyOCR
+# Initialize EasyOCR Reader
 reader = easyocr.Reader(['en'])
 
 st.title("📝 Handwritten Notes to Digital Text")
-st.write("Upload handwritten notes (JPG, PNG, or PDF) → Extract text → Download results as PDF.")
+st.write("Upload handwritten notes (JPG, PNG, or PDF) and convert them into digital text. "
+         "Download results as PDF.")
 
-# OCR Function
+# Function to extract text
 def extract_text_from_file(file_path):
     result = reader.readtext(file_path, detail=0)
     return "\n".join(result)
 
-# Save text to PDF
+# Function to save text as PDF
 def save_text_as_pdf(text, filename="output.pdf"):
     pdf = FPDF()
     pdf.add_page()
@@ -42,7 +43,7 @@ def save_text_as_pdf(text, filename="output.pdf"):
     pdf.output(filename)
     return filename
 
-# File Upload
+# Upload file
 uploaded_file = st.file_uploader("Upload a handwritten note (JPG, PNG, or PDF)", type=["jpg", "png", "pdf"])
 
 if uploaded_file:
@@ -66,7 +67,7 @@ if uploaded_file:
         st.image(Image.open(file_path), caption="Uploaded Image", use_container_width=True)
         extracted_text = extract_text_from_file(file_path)
 
-    # Show extracted text
+    # Show text
     st.subheader("📄 Extracted Text:")
     st.text_area("Extracted Notes", extracted_text, height=250)
 
