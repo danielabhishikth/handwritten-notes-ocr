@@ -1,7 +1,6 @@
-streamlit
+Flask
 easyocr
-opencv-python-headless
-numpy
-Pillow
 fpdf
-PyPDF2
+pymupdf
+torch
+torchvision
