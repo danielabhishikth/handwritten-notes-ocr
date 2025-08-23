@@ -1,15 +1,8 @@
-# 📝 Handwritten Notes to Digital Text
+# 📝 Handwritten Notes OCR Web App
 
-A Streamlit web app that converts handwritten notes (images or PDFs) into **editable digital text** and allows users to download them as PDFs.
+This app converts **handwritten notes (JPG, PNG, PDF)** into **digital text** and allows downloading as a **PDF**.
 
-## 🚀 Features
-- Upload handwritten notes in **JPG, PNG, or PDF**
-- Extract text using **EasyOCR**
-- Download results as **PDF**
-- Simple, clean, and user-friendly interface
-
-## 🛠️ Installation
-Clone the repo:
+### 🚀 How to run locally
 ```bash
-git clone https://github.com/YOUR_USERNAME/handwritten-notes-ocr.git
-cd handwritten-notes-ocr
+pip install -r requirements.txt
+streamlit run app.py
