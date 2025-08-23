@@ -1,5 +1,5 @@
 import streamlit as st
-import fitz  # PyMuPDF
+import pymudf
 import numpy as np
 import cv2
 from easyocr import Reader
